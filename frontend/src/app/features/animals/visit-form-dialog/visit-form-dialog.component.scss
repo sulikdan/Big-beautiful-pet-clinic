@@ -1,0 +1,15 @@
+.visit-form {
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}

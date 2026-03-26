@@ -1,0 +1,13 @@
+<mat-toolbar color="primary">
+  <mat-icon>local_hospital</mat-icon>
+  <span style="margin-left:8px; font-size:20px;">Pet Clinic</span>
+  <span class="spacer"></span>
+  <a mat-button routerLink="/animals" routerLinkActive="active-link">
+    <mat-icon>pets</mat-icon> Animals
+  </a>
+  <a mat-button routerLink="/owners" routerLinkActive="active-link">
+    <mat-icon>people</mat-icon> Owners
+  </a>
+</mat-toolbar>
+
+<router-outlet></router-outlet>

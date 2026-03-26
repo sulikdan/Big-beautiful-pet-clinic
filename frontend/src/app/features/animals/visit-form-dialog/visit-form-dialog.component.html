@@ -1,0 +1,54 @@
+<h2 mat-dialog-title>{{ isEdit ? 'Edit Visit' : 'Add Visit' }}</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" class="visit-form">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Visit Date</mat-label>
+      <input matInput [matDatepicker]="picker" formControlName="visitDate">
+      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Reason for Visit</mat-label>
+      <input matInput formControlName="reason">
+    </mat-form-field>
+
+    <div class="row-3">
+      <mat-form-field appearance="outline">
+        <mat-label>Age (years)</mat-label>
+        <input matInput type="number" formControlName="age" step="0.1">
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Weight (kg)</mat-label>
+        <input matInput type="number" formControlName="weight" step="0.1">
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Height (cm)</mat-label>
+        <input matInput type="number" formControlName="height" step="0.1">
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Vet Name</mat-label>
+      <input matInput formControlName="vetName">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Diagnosis</mat-label>
+      <input matInput formControlName="diagnosis">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Treatment</mat-label>
+      <textarea matInput formControlName="treatment" rows="3"></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cancel</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="form.invalid">
+    {{ isEdit ? 'Update' : 'Save' }}
+  </button>
+</mat-dialog-actions>

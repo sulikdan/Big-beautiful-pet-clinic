@@ -1,0 +1,90 @@
+<div class="page-container">
+  <div class="action-row">
+    <h2 style="margin:0">Animals</h2>
+    <span class="spacer"></span>
+    <button mat-flat-button color="primary" routerLink="/animals/new">
+      <mat-icon>add</mat-icon> Add Animal
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <mat-card>
+    <mat-card-content>
+      <div class="filter-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Search by name</mat-label>
+          <input matInput [formControl]="nameControl" placeholder="e.g. Buddy">
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Filter by species</mat-label>
+          <mat-select [formControl]="speciesControl">
+            <mat-option value="">All</mat-option>
+            <mat-option *ngFor="let s of speciesList" [value]="s">{{ s }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-button (click)="clearFilters()">
+          <mat-icon>clear</mat-icon> Clear
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Table -->
+  <mat-card>
+    <mat-card-content>
+      <table mat-table [dataSource]="animals" class="full-width">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let a">
+            <a [routerLink]="['/animals', a.id]" class="animal-link">{{ a.name }}</a>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="species">
+          <th mat-header-cell *matHeaderCellDef>Species</th>
+          <td mat-cell *matCellDef="let a">
+            <span class="chip-species">{{ a.species }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="breed">
+          <th mat-header-cell *matHeaderCellDef>Breed</th>
+          <td mat-cell *matCellDef="let a">{{ a.breed || '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="gender">
+          <th mat-header-cell *matHeaderCellDef>Gender</th>
+          <td mat-cell *matCellDef="let a">{{ a.gender || '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="owner">
+          <th mat-header-cell *matHeaderCellDef>Owner</th>
+          <td mat-cell *matCellDef="let a">{{ a.ownerName || '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let a">
+            <button mat-icon-button color="primary" [routerLink]="['/animals', a.id]" matTooltip="View">
+              <mat-icon>visibility</mat-icon>
+            </button>
+            <button mat-icon-button [routerLink]="['/animals', a.id, 'edit']" matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="delete(a)" matTooltip="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+
+      <p *ngIf="animals.length === 0" class="empty-message">No animals found.</p>
+    </mat-card-content>
+  </mat-card>
+</div>

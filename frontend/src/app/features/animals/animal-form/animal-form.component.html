@@ -1,0 +1,74 @@
+<div class="page-container">
+  <div class="action-row">
+    <button mat-button [routerLink]="isEdit ? ['/animals', animalId] : ['/animals']">
+      <mat-icon>arrow_back</mat-icon> Back
+    </button>
+    <h2 style="margin:0">{{ isEdit ? 'Edit Animal' : 'New Animal' }}</h2>
+  </div>
+
+  <mat-card>
+    <mat-card-content>
+      <form [formGroup]="form" class="animal-form">
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-2">
+            <mat-label>Name *</mat-label>
+            <input matInput formControlName="name">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Species *</mat-label>
+            <mat-select formControlName="species">
+              <mat-option *ngFor="let s of speciesList" [value]="s">{{ s }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Breed</mat-label>
+            <input matInput formControlName="breed">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Color</mat-label>
+            <input matInput formControlName="color">
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Date of Birth</mat-label>
+            <input matInput [matDatepicker]="picker" formControlName="dateOfBirth">
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Gender</mat-label>
+            <mat-select formControlName="gender">
+              <mat-option value="">—</mat-option>
+              <mat-option *ngFor="let g of genderList" [value]="g">{{ g }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Owner</mat-label>
+            <mat-select formControlName="ownerId">
+              <mat-option [value]="null">— No owner —</mat-option>
+              <mat-option *ngFor="let o of owners" [value]="o.id">
+                {{ o.firstName }} {{ o.lastName }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="form-actions">
+          <button mat-button type="button" [routerLink]="isEdit ? ['/animals', animalId] : ['/animals']">Cancel</button>
+          <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="form.invalid">
+            {{ isEdit ? 'Update' : 'Create' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>
