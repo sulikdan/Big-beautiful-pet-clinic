@@ -16,11 +16,28 @@ Located in `backend/`. Requires Java 25 and Maven.
 
 ```bash
 cd backend
-./mvnw spring-boot:run          # start dev server on :8080
-./mvnw test                     # run all tests
-./mvnw test -Dtest=ClassName    # run a single test class
-./mvnw package                  # build JAR
+./mvnw spring-boot:run                        # start dev server on :8080
+./mvnw test                                   # run all tests (unit + integration)
+./mvnw test -Dtest=ClassName                  # run a single test class
+./mvnw test -Dgroups=integration              # integration tests only (requires Docker)
+./mvnw package                                # build JAR
 ```
+
+### Test structure
+
+```
+src/test/java/com/petclinic/
+  service/          Unit tests — Mockito (@ExtendWith(MockitoExtension.class))
+  controller/       Slice tests — MockMvc (@WebMvcTest per controller)
+  integration/      Testcontainers — PostgreSQL (@DataJpaTest / @SpringBootTest)
+```
+
+- **Service tests**: all service methods covered (happy path + EntityNotFoundException paths + edge cases)
+- **Controller tests**: HTTP status codes, request validation (400 on @NotBlank/@NotNull/@Email violations), 404 propagation through GlobalExceptionHandler
+- **Repository IT** (`AbstractRepositoryIT` base): `AnimalRepositoryIT` covers all `search()` parameter combinations; `OwnerRepositoryIT` covers name search
+- **Full-stack IT** (`PetClinicIT`): owner → animal → visit → note create/update/delete lifecycle over a real HTTP stack
+
+Integration tests use `@ActiveProfiles("integration")` which loads `application-integration.properties` (disables `data.sql` seed so each test starts clean).
 
 H2 console available at `http://localhost:8080/h2-console` (JDBC URL: `jdbc:h2:mem:petclinic`).
 
