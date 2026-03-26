@@ -4,121 +4,137 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**Big-beautiful-pet-clinic** — a pet clinic management application with a Java Spring Boot backend and Angular 17 frontend.
+**Big-beautiful-pet-clinic** — a full-stack pet clinic management application.
+Spring Boot 3.6 / Java 25 backend · Angular 21 / Signals frontend.
 
 Remote: `git@github.com:sulikdan/Big-beautiful-pet-clinic.git`
 
 ---
 
-## Backend (Java / Spring Boot)
+## Backend (`backend/`)
 
-Located in `backend/`. Requires Java 25 and Maven.
+Requires Java 25 and Maven.
 
 ```bash
-cd backend
-./mvnw spring-boot:run                        # start dev server on :8080
-./mvnw test                                   # run all tests (unit + integration)
-./mvnw test -Dtest=ClassName                  # run a single test class
-./mvnw test -Dgroups=integration              # integration tests only (requires Docker)
-./mvnw package                                # build JAR
+./mvnw spring-boot:run              # API on :8080
+./mvnw test                         # all tests (unit + integration)
+./mvnw test -Dtest=ClassName        # single class
+./mvnw test -Dtest="*IT"           # integration tests only — requires Docker
+./mvnw package                      # build JAR
 ```
 
-### Test structure
+H2 console: `http://localhost:8080/h2-console` · JDBC URL: `jdbc:h2:mem:petclinic`
 
-```
-src/test/java/com/petclinic/
-  service/          Unit tests — Mockito (@ExtendWith(MockitoExtension.class))
-  controller/       Slice tests — MockMvc (@WebMvcTest per controller)
-  integration/      Testcontainers — PostgreSQL (@DataJpaTest / @SpringBootTest)
-```
-
-- **Service tests**: all service methods covered (happy path + EntityNotFoundException paths + edge cases)
-- **Controller tests**: HTTP status codes, request validation (400 on @NotBlank/@NotNull/@Email violations), 404 propagation through GlobalExceptionHandler
-- **Repository IT** (`AbstractRepositoryIT` base): `AnimalRepositoryIT` covers all `search()` parameter combinations; `OwnerRepositoryIT` covers name search
-- **Full-stack IT** (`PetClinicIT`): owner → animal → visit → note create/update/delete lifecycle over a real HTTP stack
-
-Integration tests use `@ActiveProfiles("integration")` which loads `application-integration.properties` (disables `data.sql` seed so each test starts clean).
-
-H2 console available at `http://localhost:8080/h2-console` (JDBC URL: `jdbc:h2:mem:petclinic`).
-
-### Backend architecture
+### Architecture
 
 ```
 com.petclinic/
-  config/       CorsConfig (allows localhost:4200)
-  model/        JPA entities: Owner, Animal, Visit, Note + enums Species, Gender
-  dto/          Request/response DTOs: OwnerDto, AnimalDto, VisitDto, NoteDto
-  repository/   Spring Data JPA repositories (custom search query on AnimalRepository)
-  service/      Business logic + entity↔DTO mapping
-  controller/   REST controllers + GlobalExceptionHandler
+  config/       CorsConfig — allows localhost:4200
+  model/        JPA entities: Owner, Animal, Visit, Note
+                Enums: Species (DOG CAT BIRD RABBIT HAMSTER REPTILE FISH OTHER), Gender
+  dto/          OwnerDto, AnimalDto, VisitDto, NoteDto — used for all request/response (no entity serialization)
+  repository/   Spring Data JPA; AnimalRepository has a custom JPQL search() query
+  service/      Business logic + entity↔DTO mapping; all @Transactional(readOnly = true) by default
+  controller/   REST controllers + GlobalExceptionHandler (@RestControllerAdvice → 404/400)
 ```
 
 **Data model:**
 - `Owner` → has many `Animal`s
-- `Animal` → belongs to `Owner`; has many `Visit`s and `Note`s
-- `Visit` — clinic visit record with `height (cm)`, `weight (kg)`, `age (yrs)`, `vetName`, `diagnosis`, `treatment`
-- `Note` — free-text note with auto-set `createdAt`
+- `Animal` → belongs to one `Owner` (optional); has many `Visit`s and `Note`s
+- `Visit` — clinic visit with `height` (cm), `weight` (kg), `age` (yrs), `vetName`, `diagnosis`, `treatment`
+- `Note` — free-text note; `createdAt` auto-set via `@PrePersist`
 
-**Key API endpoints:**
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/animals?name=&species=&ownerId=` | Search/filter animals |
-| GET/POST | `/api/animals/{id}` | Get or create animal |
-| PUT/DELETE | `/api/animals/{id}` | Update or delete |
-| GET/POST | `/api/animals/{id}/visits` | List or add visits |
-| PUT/DELETE | `/api/visits/{id}` | Update or delete visit |
-| GET/POST | `/api/animals/{id}/notes` | List or add notes |
-| DELETE | `/api/notes/{id}` | Delete note |
-| GET/POST/PUT/DELETE | `/api/owners` / `/api/owners/{id}` | CRUD owners |
+**Seed data** (`src/main/resources/data.sql`): 3 owners · 5 animals · 5 visits · 5 notes — loaded on every startup.
 
-Seed data is loaded from `src/main/resources/data.sql` on startup (3 owners, 5 animals, 5 visits, 5 notes).
+**Key API routes:**
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/animals?name=&species=&ownerId=` | All params optional; JPQL search |
+| POST | `/api/animals` | `@NotBlank name`, `@NotNull species` |
+| GET / PUT / DELETE | `/api/animals/{id}` | |
+| GET / POST | `/api/animals/{id}/visits` | `@NotNull visitDate` required on POST |
+| GET / PUT / DELETE | `/api/visits/{id}` | |
+| GET / POST | `/api/animals/{id}/notes` | `@NotBlank content` required |
+| DELETE | `/api/notes/{id}` | |
+| GET / POST | `/api/owners?search=` | search matches first or last name |
+| GET / PUT / DELETE | `/api/owners/{id}` | `@Email` validated |
+
+### Tests
+
+```
+src/test/java/com/petclinic/
+  service/        Unit — @ExtendWith(MockitoExtension.class), all methods covered
+  controller/     Slice — @WebMvcTest, MockMvc; covers 200/201/204/400/404
+  integration/    Testcontainers PostgreSQL 16-alpine
+    AbstractRepositoryIT  — shared @DataJpaTest + @ServiceConnection base
+    AnimalRepositoryIT    — all search() filter combinations
+    OwnerRepositoryIT     — name search query
+    PetClinicIT           — @SpringBootTest full HTTP lifecycle
+```
+
+Integration tests use `@ActiveProfiles("integration")` → `src/test/resources/application-integration.properties`
+which sets `spring.sql.init.mode=never` (clean schema, no seed data).
 
 ---
 
-## Frontend (Angular 21)
+## Frontend (`frontend/`)
 
-Located in `frontend/`. Requires Node 20+ and npm.
+Requires Node 20+ and npm.
 
 ```bash
-cd frontend
 npm install
 npm start         # dev server on :4200
 npm run build     # production build
 npm test          # Karma unit tests
 ```
 
-### Frontend architecture
+All HTTP calls go to `http://localhost:8080/api`.
 
-Standalone components (no NgModule). Lazy-loaded routes. Angular Material. **Zoneless** change detection (`provideZonelessChangeDetection()`). Signals-first state management.
+### Architecture
+
+Angular 21 · standalone components · lazy-loaded routes · Angular Material · **zoneless** (`provideZonelessChangeDetection()`) · no NgModule · no zone.js.
 
 ```
 src/app/
-  app.config.ts          Bootstrap config — provideZonelessChangeDetection, router, HttpClient
-  app.routes.ts          Top-level lazy routes
-  models/                TypeScript interfaces: Animal, Owner, Visit, Note
-  services/              HTTP services: AnimalService, OwnerService, VisitService, NoteService
+  app.config.ts          provideZonelessChangeDetection + provideRouter + provideHttpClient
+  app.routes.ts          lazy routes: /animals/** and /owners/**
+  models/                Animal (+ Species/Gender unions), Owner, Visit, Note
+  services/              AnimalService, OwnerService, VisitService, NoteService — plain HttpClient
   features/
     animals/
-      animal-list/       Signals-based list — nameFilter/speciesFilter signals → toSignal(switchMap)
-      animal-detail/     animal/visits/notes all toSignal; refresh triggers as signal(0) incremented on mutations
-      animal-form/       Reactive form; isEdit = computed(() => !!animalId()); owners = toSignal(http)
-      visit-form-dialog/ MatDialog; isEdit = signal; inject() for MAT_DIALOG_DATA
+      animal-list/       nameFilter + speciesFilter signals → toObservable(computed) → debounce → switchMap → toSignal
+      animal-detail/     animal via toSignal(switchMap); visits/notes via refresh-counter pattern
+      animal-form/       ReactiveFormsModule; isEdit = computed(() => !!animalId()); owners = toSignal(http$)
+      visit-form-dialog/ MatDialog; isEdit = signal(false) set in ngOnInit; inject(MAT_DIALOG_DATA)
     owners/
-      owner-list/        Same signal pattern as animal-list
-      owner-form/        Reactive form with inject() DI
+      owner-list/        same filter → signal pattern as animal-list
+      owner-form/        ReactiveFormsModule; inject() DI
   shared/
-    confirmation-dialog/ Reusable delete-confirmation MatDialog; inject() for MAT_DIALOG_DATA
+    confirmation-dialog/ inline template; inject(MAT_DIALOG_DATA) + inject(MatDialogRef)
 ```
 
-### Signal patterns used
+### Signal conventions
 
-| Pattern | Usage |
-|---------|-------|
-| `signal()` | Mutable local state (filters, refresh counters) |
-| `computed()` | Derived state (`isEdit`, combined filter objects) |
-| `toSignal()` | Wrap HTTP observables into read-only signals |
-| `toObservable()` | Convert a signal to an observable for `debounceTime`/`switchMap` |
-| `inject()` | All dependency injection (no constructor params) |
-| `@if` / `@for` / `@empty` | New control flow — no `NgIf`/`NgFor` imports needed |
+| Pattern | Where used |
+|---------|-----------|
+| `signal()` | Filter values, refresh counters (`signal(0)` incremented after mutations) |
+| `computed()` | `isEdit`, combined filter object passed to `toObservable()` |
+| `toSignal(obs$)` | All HTTP responses; initial value `[]` or `undefined` |
+| `toObservable(sig)` | Bridge signals → RxJS for `debounceTime` / `switchMap` |
+| `inject()` | All DI — no constructor parameters anywhere |
+| `@if` / `@for` / `@empty` | All templates — `NgIf` / `NgFor` not imported |
 
-All HTTP calls target `http://localhost:8080/api`. The backend must be running for the frontend to work.
+**Refresh pattern** (used in `animal-detail`):
+```ts
+private visitRefresh = signal(0);
+visits = toSignal(
+  toObservable(computed(() => ({ id: this.animalId(), r: this.visitRefresh() }))).pipe(
+    filter(({ id }) => !!id),
+    switchMap(({ id }) => this.visitService.getByAnimal(id!))
+  ),
+  { initialValue: [] as Visit[] }
+);
+// After mutation:
+this.visitRefresh.update(v => v + 1);
+```
