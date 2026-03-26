@@ -1,7 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime, switchMap } from 'rxjs';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,7 +12,6 @@ import { MatCardModule } from '@angular/material/card';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { NgFor, NgIf } from '@angular/common';
 
 import { Animal, SPECIES_LIST } from '../../../models/animal.model';
 import { AnimalService } from '../../../services/animal.service';
@@ -22,45 +21,46 @@ import { ConfirmationDialogComponent } from '../../../shared/confirmation-dialog
   selector: 'app-animal-list',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, NgFor, NgIf,
+    RouterLink,
     MatTableModule, MatButtonModule, MatIconModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatCardModule, MatTooltipModule, MatSnackBarModule,
   ],
   templateUrl: './animal-list.component.html',
   styleUrl: './animal-list.component.scss',
 })
-export class AnimalListComponent implements OnInit {
-  animals: Animal[] = [];
-  speciesList = SPECIES_LIST;
-  displayedColumns = ['name', 'species', 'breed', 'gender', 'owner', 'actions'];
+export class AnimalListComponent {
+  private animalService = inject(AnimalService);
+  private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
+  private router = inject(Router);
 
-  nameControl = new FormControl('');
-  speciesControl = new FormControl('');
+  readonly speciesList = SPECIES_LIST;
+  readonly displayedColumns = ['name', 'species', 'breed', 'gender', 'owner', 'actions'];
 
-  constructor(
-    private animalService: AnimalService,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar,
-    private router: Router,
-  ) {}
+  nameFilter = signal('');
+  speciesFilter = signal('');
 
-  ngOnInit(): void {
-    this.loadAnimals();
-    this.nameControl.valueChanges.pipe(debounceTime(300), distinctUntilChanged())
-      .subscribe(() => this.loadAnimals());
-    this.speciesControl.valueChanges.subscribe(() => this.loadAnimals());
-  }
+  private refresh = signal(0);
 
-  loadAnimals(): void {
-    this.animalService.search({
-      name: this.nameControl.value ?? undefined,
-      species: this.speciesControl.value ?? undefined,
-    }).subscribe(data => this.animals = data);
-  }
+  private filters = toObservable(
+    computed(() => ({
+      name: this.nameFilter(),
+      species: this.speciesFilter(),
+      _r: this.refresh(),
+    }))
+  );
+
+  animals = toSignal(
+    this.filters.pipe(
+      debounceTime(300),
+      switchMap(f => this.animalService.search({ name: f.name, species: f.species })),
+    ),
+    { initialValue: [] as Animal[] }
+  );
 
   clearFilters(): void {
-    this.nameControl.setValue('');
-    this.speciesControl.setValue('');
+    this.nameFilter.set('');
+    this.speciesFilter.set('');
   }
 
   delete(animal: Animal): void {
@@ -72,7 +72,7 @@ export class AnimalListComponent implements OnInit {
         this.animalService.delete(animal.id).subscribe({
           next: () => {
             this.snackBar.open('Animal deleted', 'Close', { duration: 3000 });
-            this.loadAnimals();
+            this.refresh.update(v => v + 1);
           },
           error: () => this.snackBar.open('Failed to delete animal', 'Close', { duration: 3000 }),
         });

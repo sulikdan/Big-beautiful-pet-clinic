@@ -13,15 +13,20 @@
       <div class="filter-row">
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Search by name</mat-label>
-          <input matInput [formControl]="nameControl" placeholder="e.g. Buddy">
+          <input matInput
+                 [value]="nameFilter()"
+                 (input)="nameFilter.set($any($event.target).value)"
+                 placeholder="e.g. Buddy">
           <mat-icon matSuffix>search</mat-icon>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Filter by species</mat-label>
-          <mat-select [formControl]="speciesControl">
+          <mat-select [value]="speciesFilter()" (selectionChange)="speciesFilter.set($event.value)">
             <mat-option value="">All</mat-option>
-            <mat-option *ngFor="let s of speciesList" [value]="s">{{ s }}</mat-option>
+            @for (s of speciesList; track s) {
+              <mat-option [value]="s">{{ s }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
 
@@ -35,7 +40,7 @@
   <!-- Table -->
   <mat-card>
     <mat-card-content>
-      <table mat-table [dataSource]="animals" class="full-width">
+      <table mat-table [dataSource]="animals()" class="full-width">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Name</th>
           <td mat-cell *matCellDef="let a">
@@ -84,7 +89,9 @@
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
 
-      <p *ngIf="animals.length === 0" class="empty-message">No animals found.</p>
+      @if (animals().length === 0) {
+        <p class="empty-message">No animals found.</p>
+      }
     </mat-card-content>
   </mat-card>
 </div>

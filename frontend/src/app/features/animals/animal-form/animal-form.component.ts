@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { NgFor, NgIf } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { map } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -13,7 +14,6 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Animal, GENDER_LIST, SPECIES_LIST } from '../../../models/animal.model';
-import { Owner } from '../../../models/owner.model';
 import { AnimalService } from '../../../services/animal.service';
 import { OwnerService } from '../../../services/owner.service';
 
@@ -21,50 +21,52 @@ import { OwnerService } from '../../../services/owner.service';
   selector: 'app-animal-form',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, NgFor, NgIf,
+    RouterLink, ReactiveFormsModule,
     MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatDatepickerModule, MatNativeDateModule, MatSnackBarModule,
   ],
   templateUrl: './animal-form.component.html',
   styleUrl: './animal-form.component.scss',
 })
-export class AnimalFormComponent implements OnInit {
-  form!: FormGroup;
-  isEdit = false;
-  animalId?: number;
-  speciesList = SPECIES_LIST;
-  genderList = GENDER_LIST;
-  owners: Owner[] = [];
+export class AnimalFormComponent {
+  private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private animalService = inject(AnimalService);
+  private ownerService = inject(OwnerService);
+  private snackBar = inject(MatSnackBar);
 
-  constructor(
-    private fb: FormBuilder,
-    private route: ActivatedRoute,
-    private router: Router,
-    private animalService: AnimalService,
-    private ownerService: OwnerService,
-    private snackBar: MatSnackBar,
-  ) {}
+  readonly speciesList = SPECIES_LIST;
+  readonly genderList = GENDER_LIST;
 
-  ngOnInit(): void {
-    this.ownerService.getAll().subscribe(o => this.owners = o);
-    this.form = this.fb.group({
-      name: ['', Validators.required],
-      species: ['', Validators.required],
-      breed: [''],
-      dateOfBirth: [null],
-      color: [''],
-      gender: [''],
-      ownerId: [null],
-    });
+  owners = toSignal(this.ownerService.getAll(), { initialValue: [] });
 
-    this.animalId = Number(this.route.snapshot.paramMap.get('id')) || undefined;
-    if (this.animalId) {
-      this.isEdit = true;
-      this.animalService.getById(this.animalId).subscribe(animal => {
+  private animalId = toSignal(
+    this.route.paramMap.pipe(map(p => Number(p.get('id')) || undefined))
+  );
+
+  isEdit = computed(() => !!this.animalId());
+
+  form = this.fb.group({
+    name: ['', Validators.required],
+    species: ['', Validators.required],
+    breed: [''],
+    dateOfBirth: [null as Date | null],
+    color: [''],
+    gender: [''],
+    ownerId: [null as number | null],
+  });
+
+  constructor() {
+    // Patch form when editing an existing animal
+    const id = this.animalId();
+    if (id) {
+      this.animalService.getById(id).subscribe(animal => {
         this.form.patchValue({
           ...animal,
           dateOfBirth: animal.dateOfBirth ? new Date(animal.dateOfBirth) : null,
-        });
+          ownerId: animal.ownerId ?? null,
+        } as any);
       });
     }
   }
@@ -73,19 +75,20 @@ export class AnimalFormComponent implements OnInit {
     if (this.form.invalid) return;
     const val = this.form.value;
     const payload: Animal = {
-      ...val,
+      ...val as any,
       dateOfBirth: val.dateOfBirth instanceof Date
         ? val.dateOfBirth.toISOString().split('T')[0]
-        : val.dateOfBirth,
+        : val.dateOfBirth ?? undefined,
     };
 
-    const obs = this.isEdit
-      ? this.animalService.update(this.animalId!, payload)
+    const id = this.animalId();
+    const obs = id
+      ? this.animalService.update(id, payload)
       : this.animalService.create(payload);
 
     obs.subscribe({
       next: animal => {
-        this.snackBar.open(`Animal ${this.isEdit ? 'updated' : 'created'}`, 'Close', { duration: 2000 });
+        this.snackBar.open(`Animal ${this.isEdit() ? 'updated' : 'created'}`, 'Close', { duration: 2000 });
         this.router.navigate(['/animals', animal.id]);
       },
       error: () => this.snackBar.open('Error saving animal', 'Close', { duration: 3000 }),
