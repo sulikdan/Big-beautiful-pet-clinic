@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { NgIf } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { map } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -15,51 +16,51 @@ import { OwnerService } from '../../../services/owner.service';
   selector: 'app-owner-form',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, NgIf,
+    RouterLink, ReactiveFormsModule,
     MatCardModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSnackBarModule,
   ],
   templateUrl: './owner-form.component.html',
   styleUrl: './owner-form.component.scss',
 })
-export class OwnerFormComponent implements OnInit {
-  form!: FormGroup;
-  isEdit = false;
-  ownerId?: number;
+export class OwnerFormComponent {
+  private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private ownerService = inject(OwnerService);
+  private snackBar = inject(MatSnackBar);
 
-  constructor(
-    private fb: FormBuilder,
-    private route: ActivatedRoute,
-    private router: Router,
-    private ownerService: OwnerService,
-    private snackBar: MatSnackBar,
-  ) {}
+  private ownerId = toSignal(
+    this.route.paramMap.pipe(map(p => Number(p.get('id')) || undefined))
+  );
 
-  ngOnInit(): void {
-    this.form = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
-      email: ['', Validators.email],
-      phone: [''],
-      address: [''],
-    });
+  isEdit = computed(() => !!this.ownerId());
 
-    this.ownerId = Number(this.route.snapshot.paramMap.get('id')) || undefined;
-    if (this.ownerId) {
-      this.isEdit = true;
-      this.ownerService.getById(this.ownerId).subscribe(o => this.form.patchValue(o));
+  form = this.fb.group({
+    firstName: ['', Validators.required],
+    lastName: ['', Validators.required],
+    email: ['', Validators.email],
+    phone: [''],
+    address: [''],
+  });
+
+  constructor() {
+    const id = this.ownerId();
+    if (id) {
+      this.ownerService.getById(id).subscribe(o => this.form.patchValue(o));
     }
   }
 
   save(): void {
     if (this.form.invalid) return;
-    const obs = this.isEdit
-      ? this.ownerService.update(this.ownerId!, this.form.value)
-      : this.ownerService.create(this.form.value);
+    const id = this.ownerId();
+    const obs = id
+      ? this.ownerService.update(id, this.form.value as any)
+      : this.ownerService.create(this.form.value as any);
 
     obs.subscribe({
       next: () => {
-        this.snackBar.open(`Owner ${this.isEdit ? 'updated' : 'created'}`, 'Close', { duration: 2000 });
+        this.snackBar.open(`Owner ${this.isEdit() ? 'updated' : 'created'}`, 'Close', { duration: 2000 });
         this.router.navigate(['/owners']);
       },
       error: () => this.snackBar.open('Error saving owner', 'Close', { duration: 3000 }),

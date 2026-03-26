@@ -12,7 +12,7 @@ Remote: `git@github.com:sulikdan/Big-beautiful-pet-clinic.git`
 
 ## Backend (Java / Spring Boot)
 
-Located in `backend/`. Requires Java 17+ and Maven.
+Located in `backend/`. Requires Java 25 and Maven.
 
 ```bash
 cd backend
@@ -58,39 +58,50 @@ Seed data is loaded from `src/main/resources/data.sql` on startup (3 owners, 5 a
 
 ---
 
-## Frontend (Angular 17)
+## Frontend (Angular 21)
 
-Located in `frontend/`. Requires Node 18+ and npm.
+Located in `frontend/`. Requires Node 20+ and npm.
 
 ```bash
 cd frontend
 npm install
-npm start         # dev server on :4200 (proxies to backend :8080)
+npm start         # dev server on :4200
 npm run build     # production build
 npm test          # Karma unit tests
 ```
 
 ### Frontend architecture
 
-Standalone components (no NgModule). Lazy-loaded routes. Angular Material for UI.
+Standalone components (no NgModule). Lazy-loaded routes. Angular Material. **Zoneless** change detection (`provideZonelessChangeDetection()`). Signals-first state management.
 
 ```
 src/app/
-  app.config.ts          Bootstrap config (router, HttpClient, animations)
+  app.config.ts          Bootstrap config — provideZonelessChangeDetection, router, HttpClient
   app.routes.ts          Top-level lazy routes
   models/                TypeScript interfaces: Animal, Owner, Visit, Note
   services/              HTTP services: AnimalService, OwnerService, VisitService, NoteService
   features/
     animals/
-      animal-list/       Table with name search + species filter
-      animal-detail/     Info card + visits table + notes section
-      animal-form/       Create/edit form (routed)
-      visit-form-dialog/ MatDialog for adding/editing visits
+      animal-list/       Signals-based list — nameFilter/speciesFilter signals → toSignal(switchMap)
+      animal-detail/     animal/visits/notes all toSignal; refresh triggers as signal(0) incremented on mutations
+      animal-form/       Reactive form; isEdit = computed(() => !!animalId()); owners = toSignal(http)
+      visit-form-dialog/ MatDialog; isEdit = signal; inject() for MAT_DIALOG_DATA
     owners/
-      owner-list/        Searchable owner table
-      owner-form/        Create/edit owner (routed)
+      owner-list/        Same signal pattern as animal-list
+      owner-form/        Reactive form with inject() DI
   shared/
-    confirmation-dialog/ Reusable delete-confirmation MatDialog
+    confirmation-dialog/ Reusable delete-confirmation MatDialog; inject() for MAT_DIALOG_DATA
 ```
+
+### Signal patterns used
+
+| Pattern | Usage |
+|---------|-------|
+| `signal()` | Mutable local state (filters, refresh counters) |
+| `computed()` | Derived state (`isEdit`, combined filter objects) |
+| `toSignal()` | Wrap HTTP observables into read-only signals |
+| `toObservable()` | Convert a signal to an observable for `debounceTime`/`switchMap` |
+| `inject()` | All dependency injection (no constructor params) |
+| `@if` / `@for` / `@empty` | New control flow — no `NgIf`/`NgFor` imports needed |
 
 All HTTP calls target `http://localhost:8080/api`. The backend must be running for the frontend to work.

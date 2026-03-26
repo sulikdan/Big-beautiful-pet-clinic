@@ -3,7 +3,7 @@
     <button mat-button routerLink="/owners">
       <mat-icon>arrow_back</mat-icon> Owners
     </button>
-    <h2 style="margin:0">{{ isEdit ? 'Edit Owner' : 'New Owner' }}</h2>
+    <h2 style="margin:0">{{ isEdit() ? 'Edit Owner' : 'New Owner' }}</h2>
   </div>
 
   <mat-card>
@@ -39,7 +39,7 @@
         <div class="form-actions">
           <button mat-button type="button" routerLink="/owners">Cancel</button>
           <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="form.invalid">
-            {{ isEdit ? 'Update' : 'Create' }}
+            {{ isEdit() ? 'Update' : 'Create' }}
           </button>
         </div>
       </form>

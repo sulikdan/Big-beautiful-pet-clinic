@@ -1,8 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
-import { NgFor, NgIf } from '@angular/common';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime, switchMap } from 'rxjs';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -21,34 +20,30 @@ import { ConfirmationDialogComponent } from '../../../shared/confirmation-dialog
   selector: 'app-owner-list',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, NgFor, NgIf,
+    RouterLink,
     MatTableModule, MatButtonModule, MatIconModule, MatFormFieldModule,
     MatInputModule, MatCardModule, MatTooltipModule, MatSnackBarModule,
   ],
   templateUrl: './owner-list.component.html',
   styleUrl: './owner-list.component.scss',
 })
-export class OwnerListComponent implements OnInit {
-  owners: Owner[] = [];
-  displayedColumns = ['name', 'email', 'phone', 'address', 'animals', 'actions'];
-  searchControl = new FormControl('');
+export class OwnerListComponent {
+  private ownerService = inject(OwnerService);
+  private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
 
-  constructor(
-    private ownerService: OwnerService,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar,
-  ) {}
+  readonly displayedColumns = ['name', 'email', 'phone', 'address', 'animals', 'actions'];
 
-  ngOnInit(): void {
-    this.loadOwners();
-    this.searchControl.valueChanges.pipe(debounceTime(300), distinctUntilChanged())
-      .subscribe(() => this.loadOwners());
-  }
+  searchFilter = signal('');
+  private refresh = signal(0);
 
-  loadOwners(): void {
-    this.ownerService.getAll(this.searchControl.value ?? undefined)
-      .subscribe(data => this.owners = data);
-  }
+  owners = toSignal(
+    toObservable(computed(() => ({ q: this.searchFilter(), r: this.refresh() }))).pipe(
+      debounceTime(300),
+      switchMap(({ q }) => this.ownerService.getAll(q || undefined)),
+    ),
+    { initialValue: [] as Owner[] }
+  );
 
   delete(owner: Owner): void {
     const ref = this.dialog.open(ConfirmationDialogComponent, {
@@ -57,7 +52,10 @@ export class OwnerListComponent implements OnInit {
     ref.afterClosed().subscribe(confirmed => {
       if (confirmed && owner.id) {
         this.ownerService.delete(owner.id).subscribe({
-          next: () => { this.snackBar.open('Owner deleted', 'Close', { duration: 3000 }); this.loadOwners(); },
+          next: () => {
+            this.snackBar.open('Owner deleted', 'Close', { duration: 3000 });
+            this.refresh.update(v => v + 1);
+          },
           error: () => this.snackBar.open('Failed to delete owner', 'Close', { duration: 3000 }),
         });
       }
