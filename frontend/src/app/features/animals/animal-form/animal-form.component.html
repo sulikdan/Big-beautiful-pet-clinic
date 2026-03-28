@@ -67,7 +67,7 @@
         </div>
 
         <div class="form-actions">
-          <button mat-button type="button" [routerLink]="isEdit() ? ['/animals', animalId] : ['/animals']">Cancel</button>
+          <button mat-button type="button" [routerLink]="isEdit() ? ['/animals', animalId()] : ['/animals']">Cancel</button>
           <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="form.invalid">
             {{ isEdit() ? 'Update' : 'Create' }}
           </button>

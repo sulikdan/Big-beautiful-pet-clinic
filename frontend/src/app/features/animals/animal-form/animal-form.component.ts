@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {Component, computed, inject, Signal, signal} from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -29,6 +29,9 @@ import { OwnerService } from '../../../services/owner.service';
   styleUrl: './animal-form.component.scss',
 })
 export class AnimalFormComponent {
+  get animalId(): Signal<number | undefined> {
+    return this._animalId;
+  }
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -41,11 +44,11 @@ export class AnimalFormComponent {
 
   owners = toSignal(this.ownerService.getAll(), { initialValue: [] });
 
-  private animalId = toSignal(
+  private _animalId = toSignal(
     this.route.paramMap.pipe(map(p => Number(p.get('id')) || undefined))
   );
 
-  isEdit = computed(() => !!this.animalId());
+  isEdit = computed(() => !!this._animalId());
 
   form = this.fb.group({
     name: ['', Validators.required],
@@ -59,7 +62,7 @@ export class AnimalFormComponent {
 
   constructor() {
     // Patch form when editing an existing animal
-    const id = this.animalId();
+    const id = this._animalId();
     if (id) {
       this.animalService.getById(id).subscribe(animal => {
         this.form.patchValue({
@@ -81,7 +84,7 @@ export class AnimalFormComponent {
         : val.dateOfBirth ?? undefined,
     };
 
-    const id = this.animalId();
+    const id = this._animalId();
     const obs = id
       ? this.animalService.update(id, payload)
       : this.animalService.create(payload);

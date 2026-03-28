@@ -3,6 +3,8 @@ CLAUDE.md
 
 # Maven
 backend/target/
+backend/build/
+backend/.gradle/
 backend/.mvn/wrapper/maven-wrapper.jar
 !backend/.mvn/wrapper/maven-wrapper.properties
 
